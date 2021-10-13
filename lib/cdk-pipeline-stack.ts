@@ -1,24 +1,14 @@
-import cdk=  require('@aws-cdk/core');
-import * as ec2 from '@aws-cdk/aws-ec2';
-import * as rds from '@aws-cdk/aws-rds';
-import * as iam from '@aws-cdk/aws-iam';
-import * as s3 from '@aws-cdk/aws-s3';
-// import { Port, SecurityGroup } from '@aws-cdk/aws-ec2';
-// import { ManagedPolicy, Policy, Role } from '@aws-cdk/aws-iam';
-// import { Tag } from "@aws-cdk/core";
+const cdk = require("@aws-cdk/core");
+const ec2 = require("@aws-cdk/aws-ec2");
+const iam = require("@aws-cdk/aws-iam");
+const s3 = require("@aws-cdk/aws-s3");
+const rds = require('@aws-cdk/aws-rds');
 
-export class EC2RDSStack extends cdk.Stack {
+
+export class CdkPipelineStack extends cdk.Stack {
   constructor(scope: any, id: any, props?: any) {
     super(scope, id, props);
-    
-    // Bucket Creation.
-    const bucket=new s3.Bucket(this, 'Bharathi-bucket',{
-      bucketName: 'bharathi0001',
-      versioned: false,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects:true
-    });
-    //IAM creation
+
     const buildRole = new iam.Role(this, "CodeBuildRole", {
       assumedBy: new iam.ServicePrincipal('codebuild.amazonaws.com'),
     });
@@ -88,16 +78,22 @@ export class EC2RDSStack extends cdk.Stack {
       })
 
     const igwID = vpc.internetGatewayId;
-    
+    // Bucket Creation.
+    const bucket=new s3.Bucket(this, 'Bharathi-buk0001',{
+      bucketName: 'bharathibucket0001',
+      versioned: true,
+      encryption: s3.BucketEncryption.KMS_MANAGED,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+    });
     // Creating Security Group.
-    const ec2securityGroup = new ec2.SecurityGroup(this, 'SecurityGroup',{
+    const cdksecurityGroup = new ec2.SecurityGroup(this, 'SecurityGroup',{
       vpc: vpc,
       securityGroupName: "CDK-Project",
       description : "Allow SSH for ec2",
       allowAllOutbound : true
     });
-    ec2securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), 'allow ssh')
-    ec2securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'allow web pages')
+    cdksecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), 'allow ssh')
+    cdksecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'allow web pages')
 
     const userData = ec2.UserData.forLinux({ shebang: "#!/bin/bash -ex" });
     userData.addCommands("yum install -y aws-cli", "yum install -y git", "cd /home/ec2-user/", "wget https://aws-codedeploy-" + cdk.Aws.REGION + ".s3.amazonaws.com/latest/codedeploy-agent.noarch.rpm", "yum -y install codedeploy-agent.noarch.rpm", "service codedeploy-agent start");
@@ -109,11 +105,11 @@ export class EC2RDSStack extends cdk.Stack {
       vpcSubnets: {
         subnetType: ec2.SubnetType.PUBLIC
       },
-      securityGroup: ec2securityGroup,
+      securityGroup: cdksecurityGroup,
       userData: userData,
       instanceName: "Dev-Instance",
       role: role,
-      keyName: 'temp',
+      keyName: 'Iam',
       
     });
     cdk.Tag.add(devInstance, "Name", "Dev-Instance");
@@ -127,11 +123,11 @@ export class EC2RDSStack extends cdk.Stack {
       vpcSubnets: {
         subnetType: ec2.SubnetType.PUBLIC
       },
-      securityGroup: ec2securityGroup,
+      securityGroup: cdksecurityGroup,
       userData: userData,
       instanceName: "Prod-Instance",
       role: role,
-      keyName: 'temp',
+      keyName: 'Iam',
     });
     cdk.Tag.add(prodInstance, "Name", "Prod-Instance");
     cdk.Tag.add(prodInstance, "App", "DemoApp");
@@ -142,13 +138,13 @@ export class EC2RDSStack extends cdk.Stack {
       machineImage: new ec2.AmazonLinuxImage,
       vpc: vpc,
       vpcSubnets:{
-        subnetType: ec2.SubnetType.PRIVATE_ISOLATED
+        subnetType: ec2.SubnetType.PRIVATE_WITH_NAT
       },
-      securityGroup: ec2securityGroup,
+      securityGroup: cdksecurityGroup,
       userData: userData,
       instanceName: 'Private-Instance',
       role: role,
-      keyName: 'temp'
+      keyName: 'Iam'
     });
 
     const rdsSG = new ec2.SecurityGroup(this, 'rds-sg',{
@@ -157,23 +153,22 @@ export class EC2RDSStack extends cdk.Stack {
       description: "Access RDS DB",
       allowAllOutbound: true
     });
-    rdsSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3306), 'Allow RDS_DB')
-    //................................................................
-    //rds
-    // const rdsInstance = new rds.DatabaseInstance(this, 'BharathiRDS', {
-    //   engine: rds.DatabaseInstanceEngine.mysql({ version:rds.MysqlEngineVersion.VER_8_0_25 }),
-    //   instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
-    //   credentials: rds.Credentials.fromGeneratedSecret('syscdk'), // Optional - will default to 'admin' username and generated password
-    //   databaseName:'bharathiRDS',
-    //   vpc: vpc,
-    //   vpcSubnets: {
-    //   subnetType: ec2.SubnetType.PRIVATE_ISOLATED
-    //   },
-    //   instanceIdentifier:'BharathiRDS',  
-    //   securityGroups: [rdsSG],
-    //   removalPolicy: cdk.RemovalPolicy.DESTROY,
-    // });
-    //...............................................................
+    rdsSG.addIngressRule(ec2.Peer.ipv4(vpc.vpcCidrBlock), ec2.Port.tcp(3306), 'Allow RDS_DB')
+
+    const rdsInstance = new rds.DatabaseInstance(this, 'BharathiRDS', {
+      engine: rds.DatabaseInstanceEngine.mysql({ version:rds.MysqlEngineVersion.VER_8_0_25 }),
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
+      credentials: rds.Credentials.fromGeneratedSecret('syscdk'), // Optional - will default to 'admin' username and generated password
+      databaseName:'bharathiRDS',
+      vpc: vpc,
+      vpcSubnets: {
+      subnetType: ec2.SubnetType.PRIVATE_WITH_NAT
+      },
+      instanceIdentifier:'bharathiRDS',  
+      securityGroups: [rdsSG],
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     //output
     new cdk.CfnOutput(this, "DevLocation", {
       description: "Development web server location",
