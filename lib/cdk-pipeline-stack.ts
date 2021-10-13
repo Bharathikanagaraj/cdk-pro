@@ -138,7 +138,7 @@ export class CdkPipelineStack extends cdk.Stack {
       machineImage: new ec2.AmazonLinuxImage,
       vpc: vpc,
       vpcSubnets:{
-        subnetType: ec2.SubnetType.PRIVATE_WITH_NAT
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED
       },
       securityGroup: cdksecurityGroup,
       userData: userData,
@@ -162,7 +162,7 @@ export class CdkPipelineStack extends cdk.Stack {
       databaseName:'bharathiRDS',
       vpc: vpc,
       vpcSubnets: {
-      subnetType: ec2.SubnetType.PRIVATE_WITH_NAT
+      subnetType: ec2.SubnetType.PRIVATE_ISOLATED
       },
       instanceIdentifier:'bharathiRDS',  
       securityGroups: [rdsSG],
