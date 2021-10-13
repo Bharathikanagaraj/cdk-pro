@@ -109,7 +109,7 @@ export class CdkPipelineStack extends cdk.Stack {
       userData: userData,
       instanceName: "Dev-Instance",
       role: role,
-      keyName: 'Iam',
+      keyName: 'temp',
       
     });
     cdk.Tag.add(devInstance, "Name", "Dev-Instance");
@@ -127,7 +127,7 @@ export class CdkPipelineStack extends cdk.Stack {
       userData: userData,
       instanceName: "Prod-Instance",
       role: role,
-      keyName: 'Iam',
+      keyName: 'temp',
     });
     cdk.Tag.add(prodInstance, "Name", "Prod-Instance");
     cdk.Tag.add(prodInstance, "App", "DemoApp");
@@ -144,7 +144,7 @@ export class CdkPipelineStack extends cdk.Stack {
       userData: userData,
       instanceName: 'Private-Instance',
       role: role,
-      keyName: 'Iam'
+      keyName: 'temp'
     });
 
     const rdsSG = new ec2.SecurityGroup(this, 'rds-sg',{
